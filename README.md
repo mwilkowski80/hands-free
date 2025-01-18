@@ -251,8 +251,12 @@ In this case, note that **OpenAI** returns the transcribed text under `"text"` r
 
 ## License
 
-This project is distributed under your preferred [license](https://choosealicense.com/).  
-Feel free to replace this section with the actual license text if needed.
+This project is distributed under the [MIT License](https://opensource.org/licenses/MIT)
+
+## Known issues
+1. Icons are not ready.
+2. Application is so far tested only on Linux.
+3. I need to provide better documentation on how to run your own Whisper server.
 
 ---
 
