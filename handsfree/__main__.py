@@ -1,9 +1,9 @@
 # handsfree/__main__.py
 import logging
-import threading
 import sys
+import threading
 import time
-import re  # <-- nowy import do obsługi zamiany białych znaków
+import re
 
 from .config import load_config
 from .hotkey import GlobalHotkeyListener
@@ -13,8 +13,10 @@ from . import utils
 from .gui import HandsfreeGUI
 
 def main():
+    # 1. Load config from .env
     config = load_config()
 
+    # 2. Logging setup
     logging.basicConfig(
         level=config["LOG_LEVEL"],
         format="%(asctime)s:%(levelname)s:%(name)s:%(message)s"
@@ -22,13 +24,17 @@ def main():
     logger = logging.getLogger("handsfree")
     logger.info("Starting handsfree application...")
 
+    # 3. Initialize Recorder
     recorder = Recorder(max_seconds=config["MAX_RECORD_SECONDS"])
     recorder.save_recordings = config["SAVE_RECORDINGS"]
 
     is_recording = False
+
+    # 4. Create GUI (Tk + optional tray icon on Linux)
     gui = HandsfreeGUI()
     gui.set_status("IDLE")
 
+    # 5. Callback for global hotkey (start/stop recording)
     def on_hotkey_triggered():
         nonlocal is_recording
 
@@ -46,36 +52,47 @@ def main():
             gui.set_status("PROCESSING")
 
             def worker():
-                transcription = transcribe_audio(
-                    audio_data,
-                    config["WHISPER_URL"],
-                    config["API_KEY"],
-                    model=config["MODEL"],
-                    language=config["LANGUAGE"]
-                )
+                try:
+                    # 1. Call transcriber
+                    transcription = transcribe_audio(
+                        audio_data,
+                        whisper_url=config["WHISPER_URL"],
+                        api_key=config["API_KEY"],
+                        model=config["MODEL"],
+                        language=config["LANGUAGE"],
+                        mode=config["WHISPER_MODE"],
+                        cli_command=config["WHISPER_CLI_COMMAND"],
+                        cli_args=config["WHISPER_CLI_ARGS"]
+                    )
 
-                # 1. Najpierw strip() - usuwa białe znaki z początku i końca
-                transcription = transcription.strip()
+                    # 2. Post-process the text
+                    transcription = transcription.strip()
+                    if config["REPLACE_ALL_WHITESPACE_WITH_SPACE"]:
+                        transcription = re.sub(r"\s+", " ", transcription)
 
-                # 2. Jeśli flaga w configu włączona – zamieniamy WSZYSTKIE białe znaki na pojedynczą spację
-                if config["REPLACE_ALL_WHITESPACE_WITH_SPACE"]:
-                    transcription = re.sub(r"\s+", " ", transcription)
+                    logger.debug(f"Final transcription after transformations: '{transcription}'")
 
-                logger.debug(f"Final transcription after transformations: '{transcription}'")
+                    # 3. Optional delay
+                    delay = config["TYPE_START_DELAY"]
+                    if delay > 0:
+                        logger.debug(f"Sleeping {delay}s before typing text.")
+                        time.sleep(delay)
 
-                # (opcjonalne) opóźnienie przed wpisaniem (TYPE_START_DELAY), jeśli używasz
-                delay = config["TYPE_START_DELAY"]
-                if delay > 0:
-                    logger.debug(f"Sleeping {delay}s before typing text.")
-                    time.sleep(delay)
+                    # 4. Type the text
+                    utils.type_text(transcription)
 
-                # 3. Wpisanie tekstu (na Linuksie xdotool, na innych pyautogui)
-                utils.type_text(transcription)
+                except Exception as e:
+                    # If something goes wrong, log it
+                    logger.exception(f"Transcription worker error: {e}")
 
-                gui.set_status("IDLE")
+                finally:
+                    # Always go back to IDLE, even if there's an error
+                    gui.set_status("IDLE")
 
+            # Run the worker in a separate thread
             threading.Thread(target=worker, daemon=True).start()
 
+    # 6. Start the global hotkey listener in a thread
     listener = GlobalHotkeyListener(
         shortcut=config["KEYBOARD_SHORTCUT"],
         on_activate=on_hotkey_triggered
@@ -83,6 +100,7 @@ def main():
     hotkey_thread = threading.Thread(target=listener.start, daemon=True)
     hotkey_thread.start()
 
+    # 7. Clean shutdown callback
     def on_close():
         logger.info("Exiting handsfree...")
         if is_recording:
@@ -93,6 +111,8 @@ def main():
         sys.exit(0)
 
     gui.set_on_close_callback(on_close)
+
+    # 8. Run the GUI main loop
     gui.run()
 
 if __name__ == "__main__":

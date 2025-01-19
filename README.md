@@ -1,6 +1,6 @@
 # Handsfree
 
-**Handsfree** is a cross-platform Python application that lets you record audio on the fly (via a hotkey), send it to a Whisper server for speech-to-text transcription, and then automatically type the recognized text into any active window. It is designed primarily for Linux, but can also run on macOS and Windows with certain limitations or adjustments (especially regarding global hotkeys and text simulation).
+**Handsfree** is a cross-platform Python application that lets you record audio on the fly (via a hotkey), **optionally send it to a Whisper server** for speech-to-text transcription, or **invoke a local Whisper CLI**. It then automatically types the recognized text into the currently active window. It is designed primarily for Linux, but can also run on macOS and Windows with certain limitations or adjustments (especially regarding global hotkeys and text simulation).
 
 ## Table of Contents
 - [Features](#features)
@@ -12,6 +12,7 @@
 - [Running a Whisper Server](#running-a-whisper-server)
   - [Local self-hosted endpoint](#local-self-hosted-endpoint)
   - [OpenAI Whisper endpoint](#openai-whisper-endpoint)
+- [Using a Local Whisper CLI](#using-a-local-whisper-cli)
 - [FAQ / Troubleshooting](#faq--troubleshooting)
 - [License](#license)
 
@@ -20,9 +21,10 @@
 ## Features
 - **Global hotkey** to start/stop recording (configurable via `.env`, e.g. `CTRL+ALT+F5`).
 - **Audio capture** using [PyAudio](https://pypi.org/project/PyAudio/).  
-- **Automatic sending** of the audio to a Whisper server (local or remote).
-- **Speech-to-text** recognition via Whisper.
-- **Automatic text typing** of the transcription into the currently active window.
+- **Automatic speech-to-text** recognition via:
+  - A **local or remote Whisper server** over HTTP, or
+  - A **local Whisper CLI** tool (e.g. `whisper.cpp`, `whisper-cli`).
+- **Automatic text typing** of the recognized text into the active window (using `pyautogui` or `xdotool` on Linux).
 - **Configurable behaviors** via `.env`:
   - Maximum recording time,
   - Save recordings or not,
@@ -50,7 +52,9 @@
    - (Optional, recommended on Linux) `PyGObject` + `libappindicator` for tray icon:  
      - Ubuntu/Debian: `sudo apt-get install python3-gi gir1.2-appindicator3-0.1`
    - (Optional, for Linux only) `xdotool` if you need to type special characters (Polish, etc.) reliably.
-4. **Whisper server** (local or remote) – or the OpenAI Whisper API endpoint.
+4. **Whisper usage**:
+   - If you use a **server** approach, you need a local or remote endpoint.  
+   - If you use a **CLI** approach, you need a working Whisper command-line tool (e.g. `whisper.cpp`, `whisper-cli`, or similar).
 
 ---
 
@@ -90,9 +94,16 @@ Example `.env`:
 # Turn on debug logs
 DEBUG=true
 
-# Whisper server details
+# Choose between "api" (use HTTP server) or "cli" (use local Whisper CLI):
+WHISPER_MODE=api
+
+# If using API mode:
 WHISPER_URL=http://localhost:8000/inference
 API_KEY=
+
+# If using CLI mode:
+WHISPER_CLI_COMMAND=/path/to/whisper-cli
+WHISPER_CLI_ARGS=-l pl -nt -m /path/to/model.bin
 
 # Whisper parameters
 MODEL=whisper-1
@@ -119,21 +130,27 @@ REPLACE_ALL_WHITESPACE_WITH_SPACE=true
 ```
 
 **Key options**:
-- `DEBUG`: If `true`, logs are more verbose.
-- `WHISPER_URL`: The endpoint to which audio will be uploaded. For local usage, it might be something like `http://localhost:8000/inference`. For OpenAI’s public API, see [OpenAI Whisper endpoint](#openai-whisper-endpoint).
+
+- `WHISPER_MODE`: 
+  - `api` (default) means the app **posts** audio data to `WHISPER_URL`.  
+  - `cli` means the app calls a **local** whisper command (see [Using a Local Whisper CLI](#using-a-local-whisper-cli)).
+- `WHISPER_URL`: The HTTP endpoint to which audio is uploaded if `WHISPER_MODE=api`.
+- `WHISPER_CLI_COMMAND` / `WHISPER_CLI_ARGS`: The CLI command and arguments if `WHISPER_MODE=cli`.
 - `API_KEY`: If your Whisper server requires a token, or if using OpenAI’s API.
-- `MODEL` and `LANGUAGE`: Adjust according to your Whisper setup.
+- `MODEL` and `LANGUAGE`: Adjust according to your Whisper setup (useful for REST usage).  
 - `MAX_RECORD_SECONDS`: Recording will auto-stop after this time.
 - `KEYBOARD_SHORTCUT`: e.g. `ctrl+alt+f5` or `ctrl+shift+r`.
 - `SAVE_RECORDINGS`: If `true`, WAV files are saved in `handsfree/recordings/`.
 - `TYPE_START_DELAY`: A float specifying a delay **before** typing text (to release Ctrl/Alt or switch windows).
-- `REPLACE_ALL_WHITESPACE_WITH_SPACE`: If `true`, all whitespace (including newlines) is replaced by single spaces.  
+- `REPLACE_ALL_WHITESPACE_WITH_SPACE`: If `true`, all whitespace (including newlines) is replaced by single spaces.
 
 ---
 
 ## Usage
 
-1. **Ensure** you have a Whisper server running (see [Running a Whisper Server](#running-a-whisper-server)) or have a valid `WHISPER_URL` pointing to an external service (e.g. OpenAI).
+1. **Ensure** you have either:
+   - A Whisper server running (see [Running a Whisper Server](#running-a-whisper-server)), **or**
+   - A local Whisper CLI if you’re using `WHISPER_MODE=cli`.
 2. **Run** the application:
    ```bash
    python -m handsfree
@@ -141,7 +158,7 @@ REPLACE_ALL_WHITESPACE_WITH_SPACE=true
 3. The program launches a small **Tkinter** window showing a `Status: IDLE`.  
    - On **Linux**, if you have `AppIndicator3` installed and a compatible tray, you should also see a tray icon.
 4. Press the **global hotkey** (e.g. `CTRL+ALT+F5`) to **start** recording (status changes to `RECORDING`, and you should hear a beep if configured).
-5. Press the **global hotkey** again to **stop** recording (you should hear the stop sound). The audio is sent to Whisper.
+5. Press the **global hotkey** again to **stop** recording (you should hear the stop sound). The audio is sent to Whisper (via REST or CLI).
 6. After receiving the **transcribed text**, the application will:
    - Wait the optional `TYPE_START_DELAY` seconds,
    - Then **type** the recognized text in the active window (or using `xdotool` on Linux).
@@ -175,6 +192,7 @@ http://localhost:8000/inference
 
 Your `.env` would then include:
 ```dotenv
+WHISPER_MODE=api
 WHISPER_URL=http://localhost:8000/inference
 API_KEY=
 ```
@@ -187,6 +205,7 @@ where the server expects POST requests with:
 ### OpenAI Whisper endpoint
 If you want to use **OpenAI’s hosted Whisper** API, set:
 ```dotenv
+WHISPER_MODE=api
 WHISPER_URL=https://api.openai.com/v1/audio/transcriptions
 API_KEY=sk-xxxxxxx  # Your OpenAI API key
 ```
@@ -224,6 +243,43 @@ In this case, note that **OpenAI** returns the transcribed text under `"text"` r
 
 ---
 
+## Using a Local Whisper CLI
+
+If you **don’t** want to rely on an HTTP server for transcription, you can set:
+
+```dotenv
+WHISPER_MODE=cli
+WHISPER_CLI_COMMAND=/path/to/whisper-cli
+WHISPER_CLI_ARGS=-l pl -nt -m /path/to/model.bin
+```
+
+When the recording ends, **Handsfree** will:
+1. Save the recorded audio to a **temporary WAV file** (in `/tmp` or another system temp folder).
+2. Call a command line similar to:
+   ```
+   /path/to/whisper-cli -l pl -nt -m /path/to/model.bin /path/to/temp.wav
+   ```
+   discarding any `stderr`.
+3. Capture the **transcribed text** from `stdout`.
+
+You might use [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (which provides `whisper-cli`), or any other Whisper-based CLI tool. Make sure the command produces a plain-text transcription on `stdout`, which Handsfree can read.
+
+**Example**:
+```dotenv
+WHISPER_MODE=cli
+WHISPER_CLI_COMMAND=x 127 x /media/mw/Storage/whisper.cpp/build/bin/whisper-cli
+WHISPER_CLI_ARGS=-l pl -nt -m /media/mw/Storage/whisper.cpp/models/ggml-large-v3.bin
+```
+This will run something like:
+```
+x 127 x /media/mw/Storage/whisper.cpp/build/bin/whisper-cli -l pl -nt \
+  -m /media/mw/Storage/whisper.cpp/models/ggml-large-v3.bin \
+  /tmp/tempfile.wav
+```
+when you stop the recording.
+
+---
+
 ## FAQ / Troubleshooting
 
 1. **Global hotkey doesn't work**:  
@@ -243,20 +299,22 @@ In this case, note that **OpenAI** returns the transcribed text under `"text"` r
 5. **Tray icon doesn’t appear**:  
    - GNOME Shell users might need the AppIndicator extension.  
    - Check that you installed the correct appindicator packages.
-6. **OpenAI vs. local Whisper**:  
-   - Make sure your `WHISPER_URL` and `API_KEY` match the correct endpoint.  
-   - Local endpoint might be `http://localhost:8000/inference`, while OpenAI’s is `https://api.openai.com/v1/audio/transcriptions`.
+6. **API vs. CLI**:  
+   - If `WHISPER_MODE=api`, the application does a `POST` to `WHISPER_URL`.  
+   - If `WHISPER_MODE=cli`, the application calls `WHISPER_CLI_COMMAND` with `WHISPER_CLI_ARGS` and a temp WAV file.
+7. **OpenAI vs. local**:  
+   - Make sure your `.env` has the correct `WHISPER_URL`, `API_KEY`, or CLI paths.  
 
 ---
 
 ## License
 
-This project is distributed under the [MIT License](https://opensource.org/licenses/MIT)
+This project is distributed under the [MIT License](https://opensource.org/licenses/MIT).
 
 ## Known issues
 1. Icons are not ready.
 2. Application is so far tested only on Linux.
-3. I need to provide better documentation on how to run your own Whisper server.
+3. More documentation needed for advanced Whisper usage.
 
 ---
 
