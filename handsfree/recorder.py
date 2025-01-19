@@ -23,7 +23,6 @@ class Recorder:
         self._is_recording = False
         self._recording_thread = None
 
-        # Domyślnie False, nadpisywane z configu
         self.save_recordings = False
 
     def start_recording(self):
@@ -56,20 +55,18 @@ class Recorder:
 
     def stop_recording(self):
         if not self._is_recording:
-            logger.debug("Not recording.")
+            logger.debug("Not recording right now.")
             return None
 
         logger.info("Stopping recording...")
         self._is_recording = False
         if self._recording_thread:
             self._recording_thread.join()
+
         self._stream.stop_stream()
         self._stream.close()
 
-        # Tworzymy WAV w pamięci
         wav_data = self._generate_wav_bytes(self._frames)
-
-        # Ewentualny zapis do pliku
         if self.save_recordings:
             self._save_to_file(wav_data)
 
@@ -89,7 +86,6 @@ class Recorder:
     def _save_to_file(self, wav_data):
         timestamp = int(time.time())
         filename = f"recording_{timestamp}.wav"
-        # Folder recordings/ w pakiecie handsfree
         folder = os.path.join(os.path.dirname(__file__), "recordings")
         os.makedirs(folder, exist_ok=True)
         filepath = os.path.join(folder, filename)
@@ -98,5 +94,4 @@ class Recorder:
         logger.info(f"Saved recording to {filepath}")
 
     def terminate(self):
-        # Gdy kończymy aplikację, zamykamy PyAudio
         self._pyaudio.terminate()

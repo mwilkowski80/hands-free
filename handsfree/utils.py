@@ -22,33 +22,20 @@ def play_sound(sound_path):
     return t
 
 def type_text(text):
-    """
-    Wprowadza tekst do aktywnego okna.
-    - Na Linuxie próbuje xdotool (lepiej radzi sobie z polskimi znakami).
-    - Na pozostałych systemach (Windows/macOS) używa pyautogui.
-    
-    UWAGA: Zakładamy, że xdotool jest zainstalowany na Linuxie.
-          Jeśli nie jest, można dodać fallback do pyautogui
-          albo wyświetlić komunikat o błędzie.
-    """
-    text = text or ""  # zabezpieczenie przed None
+    text = text or ""
     if not text.strip():
-        return  # nic nie wpisujemy, jeśli pusto/whitespace
+        return
 
     if IS_LINUX:
-        # Próbujemy xdotool
+        # Attempt xdotool
         try:
-            logger.debug(f"Using xdotool to type text (length={len(text)} chars).")
-            # Używamy --clearmodifiers, by uniknąć wciśniętych Ctrl/Alt
-            # i "type" do wpisania całego stringa naraz
+            logger.debug(f"Using xdotool to type text (length={len(text)}).")
             subprocess.run(["xdotool", "type", "--clearmodifiers", text], check=True)
         except FileNotFoundError:
-            # Jeśli xdotool nie jest dostępny, fallback do pyautogui
             logger.warning("xdotool not found! Falling back to pyautogui.")
             pyautogui.typewrite(text)
         except subprocess.CalledProcessError as e:
-            logger.warning(f"xdotool returned error: {e}")
+            logger.warning(f"xdotool error: {e}")
     else:
-        # Na Windows/macOS - pyautogui wystarczy
-        logger.debug(f"Using pyautogui to type text (length={len(text)} chars).")
+        logger.debug(f"Using pyautogui to type text (length={len(text)}).")
         pyautogui.typewrite(text)
