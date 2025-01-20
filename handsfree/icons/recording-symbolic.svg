@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg 
+    xmlns="http://www.w3.org/2000/svg"
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24"
+    fill="currentColor">
+
+  <!-- Główna obudowa mikrofonu -->
+  <path d="
+    M12 2
+    c-1.66 0 -3 1.34 -3 3
+    v5
+    c0 1.66 1.34 3 3 3
+    s3 -1.34 3 -3
+    V5
+    c0 -1.66 -1.34 -3 -3 -3
+    z
+  "/>
+
+  <!-- Dolna część + statyw -->
+  <path d="
+    M8 10
+    H6
+    v0.82
+    c0 3.79 2.63 6.8 6 7.11
+    V20
+    h-2
+    v2
+    h4
+    v-2
+    h-2
+    v-2.07
+    c3.37 -0.31 6 -3.32 6 -6.71
+    V10
+    h-2
+    v0
+    c0 2.21 -1.79 4 -4 4
+    s-4 -1.79 -4 -4
+    v0
+    z
+  "/>
+  
+</svg>
