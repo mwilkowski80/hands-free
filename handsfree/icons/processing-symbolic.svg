@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    fill="currentColor">
+  <!-- Górny pasek klepsydry -->
+  <path d="M6 0h12v4H6z" />
+  <!-- Środkowa część (dwie trójkątne „czasze”) -->
+  <path d="M6 4l6 8-6 8h12l-6-8 6-8H6z" />
+  <!-- Dolny pasek klepsydry -->
+  <path d="M6 20h12v4H6z" />
+</svg>
