@@ -1,4 +1,5 @@
 # handsfree/transcriber.py
+import re
 import requests
 import logging
 import os
@@ -81,7 +82,7 @@ def transcribe_audio(
                 text=True,
                 check=True
             )
-            transcription = result.stdout.strip()
+            transcription = re.sub(pattern=r'^-\s*', repl='', string=result.stdout.strip())
             logger.info(f"Transcription (CLI) result: {transcription}")
             return transcription
 
