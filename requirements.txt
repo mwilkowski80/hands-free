@@ -5,3 +5,4 @@ playsound==1.2.2
 requests==2.31.0
 pyautogui==0.9.53
 PyGObject
+pytest==7.4.4

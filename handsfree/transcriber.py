@@ -49,6 +49,7 @@ def transcribe_audio(
             resp.raise_for_status()
             result = resp.json()
             transcription = result.get("transcription") or result.get("text") or ""
+            transcription = clean_transcription(transcription)
             logger.info(f"Transcription (API) result: {transcription}")
             return transcription
         except requests.exceptions.RequestException as e:
@@ -82,7 +83,7 @@ def transcribe_audio(
                 text=True,
                 check=True
             )
-            transcription = re.sub(pattern=r'^-\s*', repl='', string=result.stdout.strip())
+            transcription = clean_transcription(result.stdout)
             logger.info(f"Transcription (CLI) result: {transcription}")
             return transcription
 
@@ -102,3 +103,15 @@ def transcribe_audio(
     else:
         logger.error(f"Unknown mode: {mode}")
         return ""
+
+def clean_transcription(text):
+    """
+    Cleans the transcription text by:
+    1. Removing leading/trailing whitespace
+    2. Removing leading dash and whitespace
+    :param text: input text
+    :return: cleaned text
+    """
+    text = text.strip()
+    text = re.sub(pattern=r'^[-]+\s*', repl='', string=text)
+    return text
