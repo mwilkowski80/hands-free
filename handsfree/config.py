@@ -17,8 +17,8 @@ def load_config():
         "WHISPER_URL": os.getenv("WHISPER_URL", "http://localhost:8000/inference"),
 
         # For both
-        "MODEL": os.getenv("MODEL", "whisper-1"),
-        "LANGUAGE": os.getenv("LANGUAGE", "en"),
+        "WHISPER_MODEL": os.getenv("WHISPER_MODEL", "whisper-1"),
+        "WHISPER_LANGUAGE": os.getenv("WHISPER_LANGUAGE", "en"),
 
         # CLI vs. API
         "WHISPER_MODE": os.getenv("WHISPER_MODE", "api"),
