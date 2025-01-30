@@ -33,15 +33,15 @@ def transcribe_audio(
     if mode == "api":
         # -- REST API mode --
         files = {
-            "file": ("recording.wav", audio_data, "audio/wav")
+            "file": ("recording.wav", audio_data, "audio/wav"),
+            "model": (None, model, "text"),
+            "language": (None, language, "text")
         }
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
         data = {
-            "model": model,
-            "language": language
         }
 
         try:
