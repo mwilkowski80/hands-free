@@ -58,8 +58,8 @@ def main():
                         audio_data,
                         whisper_url=config["WHISPER_URL"],
                         api_key=config["API_KEY"],
-                        model=config["MODEL"],
-                        language=config["LANGUAGE"],
+                        model=config["WHISPER_MODEL"],
+                        language=config["WHISPER_LANGUAGE"],
                         mode=config["WHISPER_MODE"],
                         cli_command=config["WHISPER_CLI_COMMAND"],
                         cli_args=config["WHISPER_CLI_ARGS"]
