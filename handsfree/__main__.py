@@ -6,7 +6,7 @@ import time
 import re
 
 from .config import load_config
-from .hotkey import GlobalHotkeyListener
+from .hotkey import GlobalHotkeyListener, DoubleTapListener, parse_single_key
 from .recorder import Recorder
 from .transcriber import transcribe_audio
 from . import utils
@@ -92,11 +92,24 @@ def main():
             # Run the worker in a separate thread
             threading.Thread(target=worker, daemon=True).start()
 
-    # 6. Start the global hotkey listener in a thread
-    listener = GlobalHotkeyListener(
-        shortcut=config["KEYBOARD_SHORTCUT"],
-        on_activate=on_hotkey_triggered
-    )
+    # 6. Start the input listener in a thread (double-tap if configured,
+    #    otherwise the legacy KEYBOARD_SHORTCUT combo).
+    if config["DOUBLE_PRESS_WINDOW_MS"] > 0:
+        listener = DoubleTapListener(
+            on_activate=on_hotkey_triggered,
+            key=parse_single_key(config["DOUBLE_PRESS_KEY"]),
+            window_ms=config["DOUBLE_PRESS_WINDOW_MS"],
+        )
+        logger.info(
+            "Trigger: double-tap %s within %d ms.",
+            config["DOUBLE_PRESS_KEY"], config["DOUBLE_PRESS_WINDOW_MS"],
+        )
+    else:
+        listener = GlobalHotkeyListener(
+            shortcut=config["KEYBOARD_SHORTCUT"],
+            on_activate=on_hotkey_triggered,
+        )
+        logger.info("Trigger: keyboard shortcut %s.", config["KEYBOARD_SHORTCUT"])
     hotkey_thread = threading.Thread(target=listener.start, daemon=True)
     hotkey_thread.start()
 
