@@ -26,6 +26,11 @@ def load_config():
         "WHISPER_CLI_ARGS": os.getenv("WHISPER_CLI_ARGS", ""),
 
         "KEYBOARD_SHORTCUT": os.getenv("KEYBOARD_SHORTCUT", "ctrl+alt+f5"),
+
+        # Double-tap mode: if DOUBLE_PRESS_WINDOW_MS > 0, the app listens for
+        # two quick presses of DOUBLE_PRESS_KEY instead of KEYBOARD_SHORTCUT.
+        "DOUBLE_PRESS_WINDOW_MS": int(os.getenv("DOUBLE_PRESS_WINDOW_MS", "0")),
+        "DOUBLE_PRESS_KEY": os.getenv("DOUBLE_PRESS_KEY", "ctrl_r"),
         "MAX_RECORD_SECONDS": int(os.getenv("MAX_RECORD_SECONDS", "30")),
         "SAVE_RECORDINGS": os.getenv("SAVE_RECORDINGS", "false").lower() == "true",
 
