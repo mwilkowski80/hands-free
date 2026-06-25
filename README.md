@@ -10,6 +10,7 @@
 - [Usage](#usage)
 - [Linux Tray Icon (optional)](#linux-tray-icon-optional)
 - [Running a Whisper Server](#running-a-whisper-server)
+  - [Remote vLLM endpoint (PGX2)](#remote-vllm-endpoint-pgx2)
   - [Local self-hosted endpoint](#local-self-hosted-endpoint)
   - [OpenAI Whisper endpoint](#openai-whisper-endpoint)
 - [Using a Local Whisper CLI](#using-a-local-whisper-cli)
@@ -86,7 +87,14 @@
 
 ## Configuration
 
-All configuration is done via a `.env` file placed in the **same directory** as the `handsfree/` folder (or in your current working directory when you run the app).
+All configuration is done via a `.env` file placed in the **same directory** you run the app from. A fully documented template lives in [`env.dist`](env.dist) — copy it and fill in your local values (notably `API_KEY`):
+
+```bash
+cp env.dist .env
+# then edit .env
+```
+
+`.env` is gitignored and MUST NOT be committed — keep secrets only there. The example below mirrors `env.dist`; see that file for the authoritative, commented list of every variable.
 
 Example `.env`:
 
@@ -97,25 +105,26 @@ DEBUG=true
 # Choose between "api" (use HTTP server) or "cli" (use local Whisper CLI):
 WHISPER_MODE=api
 
-# If using API mode:
-WHISPER_URL=http://localhost:8000/inference
-API_KEY=
+# --- API mode ---
+# Recommended: remote whisper-large-v3 on PGX2 (vLLM, OpenAI-compatible).
+WHISPER_URL=http://192.168.5.196:29473/v1/audio/transcriptions
+WHISPER_MODEL=openai/whisper-large-v3
+API_KEY=                 # Bearer token (required for PGX2 / OpenAI)
+WHISPER_LANGUAGE=pl      # ISO language hint (pl, en, ...)
 
-# If using CLI mode:
+# --- CLI mode (only when WHISPER_MODE=cli) ---
 WHISPER_CLI_COMMAND=/path/to/whisper-cli
 WHISPER_CLI_ARGS=-l pl -nt -m /path/to/model.bin
 
-# Whisper parameters
-MODEL=whisper-1
-LANGUAGE=en
-
 # Max recording duration (seconds)
-MAX_RECORD_SECONDS=30
+MAX_RECORD_SECONDS=600
 
-# Global hotkey for start/stop recording
-KEYBOARD_SHORTCUT=ctrl+alt+f5
+# Trigger: double-tap mode (window > 0) or single shortcut (window = 0)
+DOUBLE_PRESS_WINDOW_MS=800
+DOUBLE_PRESS_KEY=ctrl_r
+KEYBOARD_SHORTCUT=alt+f3
 
-# Whether to save recordings (WAV) in handsfree/recordings/
+# Whether to save recordings (WAV) in recordings/
 SAVE_RECORDINGS=false
 
 # Paths to the notification sounds
@@ -123,7 +132,7 @@ SOUND_START=handsfree/sounds/start.wav
 SOUND_STOP=handsfree/sounds/stop.wav
 
 # Optional: delay (in seconds) before typing recognized text
-TYPE_START_DELAY=1.5
+TYPE_START_DELAY=1.0
 
 # Whether to replace all whitespace with a single space
 REPLACE_ALL_WHITESPACE_WITH_SPACE=true
@@ -134,13 +143,14 @@ REPLACE_ALL_WHITESPACE_WITH_SPACE=true
 - `WHISPER_MODE`: 
   - `api` (default) means the app **posts** audio data to `WHISPER_URL`.  
   - `cli` means the app calls a **local** whisper command (see [Using a Local Whisper CLI](#using-a-local-whisper-cli)).
-- `WHISPER_URL`: The HTTP endpoint to which audio is uploaded if `WHISPER_MODE=api`.
+- `WHISPER_URL`: The HTTP endpoint to which audio is uploaded if `WHISPER_MODE=api`. Default points at the [remote PGX2 vLLM endpoint](#remote-vllm-endpoint-pgx2).
 - `WHISPER_CLI_COMMAND` / `WHISPER_CLI_ARGS`: The CLI command and arguments if `WHISPER_MODE=cli`.
-- `API_KEY`: If your Whisper server requires a token, or if using OpenAI’s API.
-- `MODEL` and `LANGUAGE`: Adjust according to your Whisper setup (useful for REST usage).  
+- `API_KEY`: Bearer token if your Whisper server requires one (the PGX2 service and OpenAI both do).
+- `WHISPER_MODEL` and `WHISPER_LANGUAGE`: Model id (must match what the server serves, e.g. `openai/whisper-large-v3`) and spoken-language hint.
 - `MAX_RECORD_SECONDS`: Recording will auto-stop after this time.
-- `KEYBOARD_SHORTCUT`: e.g. `ctrl+alt+f5` or `ctrl+shift+r`.
-- `SAVE_RECORDINGS`: If `true`, WAV files are saved in `handsfree/recordings/`.
+- `DOUBLE_PRESS_WINDOW_MS` / `DOUBLE_PRESS_KEY`: When the window is `> 0`, two quick presses of `DOUBLE_PRESS_KEY` toggle recording (and `KEYBOARD_SHORTCUT` is ignored).
+- `KEYBOARD_SHORTCUT`: Single combo used only when `DOUBLE_PRESS_WINDOW_MS=0`, e.g. `alt+f3` or `ctrl+alt+f5`.
+- `SAVE_RECORDINGS`: If `true`, WAV files are saved in `recordings/`.
 - `TYPE_START_DELAY`: A float specifying a delay **before** typing text (to release Ctrl/Alt or switch windows).
 - `REPLACE_ALL_WHITESPACE_WITH_SPACE`: If `true`, all whitespace (including newlines) is replaced by single spaces.
 
@@ -182,6 +192,39 @@ Two images (`idle.png` and `recording.png`) should be located in `handsfree/icon
 ---
 
 ## Running a Whisper Server
+
+### Remote vLLM endpoint (PGX2)
+
+This is the **default, recommended** setup: instead of running Whisper locally,
+the app offloads transcription to `whisper-large-v3` served by **vLLM on the
+PGX2 GB10 box** over the LAN. It exposes the OpenAI-compatible
+`POST /v1/audio/transcriptions` endpoint (multipart `file` + `model` +
+`language`, returns JSON with a `text` field), so no client code changes are
+needed.
+
+Your `.env`:
+```dotenv
+WHISPER_MODE=api
+WHISPER_URL=http://192.168.5.196:29473/v1/audio/transcriptions
+WHISPER_MODEL=openai/whisper-large-v3
+API_KEY=<bearer-token>     # required; matches PGX_WHISPER_API_KEY on PGX2
+WHISPER_LANGUAGE=pl
+```
+
+The server itself (Docker Compose + vLLM + systemd auto-start) is defined and
+documented in the PGX operations repo at
+`ai-shared-settings/pgx/vllm-whisper-large/` — see its `README.md` for the port,
+model id, auth, and deploy steps. The `WHISPER_MODEL` here must match the model
+served there.
+
+Quick sanity check that the endpoint is reachable and the token is valid:
+```bash
+curl -s http://192.168.5.196:29473/v1/audio/transcriptions \
+  -H "Authorization: Bearer $API_KEY" \
+  -F "file=@sample.wav;type=audio/wav" \
+  -F "model=openai/whisper-large-v3" -F "language=pl"
+# -> {"text":" ...transcription...","usage":{...}}
+```
 
 ### Local self-hosted endpoint
 If you run a local instance of Whisper (for example, a Docker container or a script that accepts a `multipart/form-data` request), you might have an endpoint like:
