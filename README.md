@@ -106,10 +106,10 @@ DEBUG=true
 WHISPER_MODE=api
 
 # --- API mode ---
-# Recommended: remote whisper-large-v3 on a self-hosted server (vLLM, OpenAI-compatible).
+# Example: self-hosted whisper-large-v3 served by vLLM (OpenAI-compatible).
 WHISPER_URL=http://<whisper-host>:<port>/v1/audio/transcriptions
 WHISPER_MODEL=openai/whisper-large-v3
-API_KEY=                 # Bearer token (required for the self-hosted server / OpenAI)
+API_KEY=                 # Bearer token (required by vLLM with an API key / OpenAI)
 WHISPER_LANGUAGE=pl      # ISO language hint (pl, en, ...)
 
 # --- CLI mode (only when WHISPER_MODE=cli) ---
@@ -143,9 +143,9 @@ REPLACE_ALL_WHITESPACE_WITH_SPACE=true
 - `WHISPER_MODE`: 
   - `api` (default) means the app **posts** audio data to `WHISPER_URL`.  
   - `cli` means the app calls a **local** whisper command (see [Using a Local Whisper CLI](#using-a-local-whisper-cli)).
-- `WHISPER_URL`: The HTTP endpoint to which audio is uploaded if `WHISPER_MODE=api`. Default points at the [remote self-hosted vLLM endpoint](#remote-vllm-endpoint-self-hosted).
+- `WHISPER_URL`: The HTTP endpoint to which audio is uploaded if `WHISPER_MODE=api`. If unset, the code falls back to `http://localhost:8000/inference`; see [Remote vLLM endpoint (self-hosted)](#remote-vllm-endpoint-self-hosted) for an OpenAI-compatible setup.
 - `WHISPER_CLI_COMMAND` / `WHISPER_CLI_ARGS`: The CLI command and arguments if `WHISPER_MODE=cli`.
-- `API_KEY`: Bearer token if your Whisper server requires one (a self-hosted vLLM service and OpenAI both do).
+- `API_KEY`: Bearer token if your Whisper server requires one (a vLLM server started with an API key and OpenAI both do).
 - `WHISPER_MODEL` and `WHISPER_LANGUAGE`: Model id (must match what the server serves, e.g. `openai/whisper-large-v3`) and spoken-language hint.
 - `MAX_RECORD_SECONDS`: Recording will auto-stop after this time.
 - `DOUBLE_PRESS_WINDOW_MS` / `DOUBLE_PRESS_KEY`: When the window is `> 0`, two quick presses of `DOUBLE_PRESS_KEY` toggle recording (and `KEYBOARD_SHORTCUT` is ignored).
@@ -195,27 +195,24 @@ Two images (`idle.png` and `recording.png`) should be located in `handsfree/icon
 
 ### Remote vLLM endpoint (self-hosted)
 
-This is the **default, recommended** setup: instead of running Whisper locally,
-the app offloads transcription to `whisper-large-v3` served by **vLLM on the
-self-hosted GPU box** over the LAN. It exposes the OpenAI-compatible
-`POST /v1/audio/transcriptions` endpoint (multipart `file` + `model` +
-`language`, returns JSON with a `text` field), so no client code changes are
-needed.
+Instead of running Whisper locally, the app can offload transcription to a
+**self-hosted vLLM server serving `openai/whisper-large-v3`**. vLLM exposes the
+OpenAI-compatible `POST /v1/audio/transcriptions` endpoint (multipart `file` +
+`model` + `language`, returns JSON with a `text` field), so no client code
+changes are needed. If the server was started with an API key
+(`--api-key` / `VLLM_API_KEY`), every request needs an
+`Authorization: Bearer <key>` header, which the app sends from `API_KEY`.
 
 Your `.env`:
 ```dotenv
 WHISPER_MODE=api
 WHISPER_URL=http://<whisper-host>:<port>/v1/audio/transcriptions
 WHISPER_MODEL=openai/whisper-large-v3
-API_KEY=<bearer-token>     # required; matches VLLM_API_KEY on a self-hosted server
+API_KEY=<bearer-token>     # the API key the vLLM server was started with
 WHISPER_LANGUAGE=pl
 ```
 
-The server itself (Docker Compose + vLLM + systemd auto-start) is defined and
-documented in the server operations repo at
-`<server-deployment-repo>/` — see its `README.md` for the port,
-model id, auth, and deploy steps. The `WHISPER_MODEL` here must match the model
-served there.
+`WHISPER_MODEL` must match the model id the server serves (check `GET /v1/models`).
 
 Quick sanity check that the endpoint is reachable and the token is valid:
 ```bash
@@ -310,12 +307,12 @@ You might use [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (which pro
 **Example**:
 ```dotenv
 WHISPER_MODE=cli
-WHISPER_CLI_COMMAND=x 127 x /path/to/whisper.cpp/build/bin/whisper-cli
+WHISPER_CLI_COMMAND=/path/to/whisper.cpp/build/bin/whisper-cli
 WHISPER_CLI_ARGS=-l pl -nt -m /path/to/whisper.cpp/models/ggml-large-v3.bin
 ```
 This will run something like:
 ```
-x 127 x /path/to/whisper.cpp/build/bin/whisper-cli -l pl -nt \
+/path/to/whisper.cpp/build/bin/whisper-cli -l pl -nt \
   -m /path/to/whisper.cpp/models/ggml-large-v3.bin \
   /tmp/tempfile.wav
 ```

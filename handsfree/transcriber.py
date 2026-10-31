@@ -25,7 +25,7 @@ def transcribe_audio(
     :param model: relevant for API or fallback
     :param language: relevant for API or fallback
     :param mode: "api" or "cli"
-    :param cli_command: e.g. "x 127 x /path/to/whisper-cli"
+    :param cli_command: e.g. "/path/to/whisper-cli"
     :param cli_args: e.g. "-l pl -nt -m /path/to/model.bin"
     :return: recognized text (str)
     """
@@ -67,7 +67,7 @@ def transcribe_audio(
         logger.debug(f"Created temp WAV file at {tmp_wav_path}")
 
         # 2. Build the command
-        command_parts = cli_command.split()     # e.g. ["x","127","x","/media/.../whisper-cli"]
+        command_parts = cli_command.split()     # e.g. ["/path/to/whisper-cli"]
         extra_args = cli_args.split()           # e.g. ["-l","pl","-nt","-m","/path/to/model.bin"]
         full_cmd = command_parts + extra_args + [tmp_wav_path]
 
